@@ -1,15 +1,13 @@
 import 'dart:collection';
 
-import 'package:flutter/material.dart';
-
 import 'package:appflowy_board/src/widgets/reorder_flex/drag_state.dart';
+import 'package:flutter/material.dart';
 
 import '../../rendering/board_overlay.dart';
 import '../../utils/log.dart';
 import '../reorder_flex/drag_target_interceptor.dart';
 import '../reorder_flex/reorder_flex.dart';
 import '../reorder_phantom/phantom_controller.dart';
-
 import 'group_data.dart';
 
 typedef OnGroupDragStarted = void Function(int index);
@@ -81,7 +79,9 @@ class AppFlowyBoardGroup extends StatefulWidget {
     this.cornerRadius = 0.0,
     this.backgroundColor = Colors.transparent,
     this.stretchGroupHeight = true,
-  }) : config = const ReorderFlexConfig();
+  }) : config = const ReorderFlexConfig(
+          draggingWidgetOpacity: 1.0,
+        );
 
   final AppFlowyBoardCardBuilder cardBuilder;
   final OnGroupReorder onReorder;
@@ -111,8 +111,7 @@ class AppFlowyBoardGroup extends StatefulWidget {
 }
 
 class _AppFlowyBoardGroupState extends State<AppFlowyBoardGroup> {
-  final GlobalKey _columnOverlayKey =
-      GlobalKey(debugLabel: '$AppFlowyBoardGroup overlay key');
+  final GlobalKey _columnOverlayKey = GlobalKey(debugLabel: '$AppFlowyBoardGroup overlay key');
   late BoardOverlayEntry _overlayEntry;
 
   @override
@@ -121,15 +120,12 @@ class _AppFlowyBoardGroupState extends State<AppFlowyBoardGroup> {
 
     _overlayEntry = BoardOverlayEntry(
       builder: (BuildContext context) {
-        final children = widget.dataSource.groupData.items
-            .map((item) => _buildWidget(context, item))
-            .toList();
+        final children =
+            widget.dataSource.groupData.items.map((item) => _buildWidget(context, item)).toList();
 
-        final header =
-            widget.headerBuilder?.call(context, widget.dataSource.groupData);
+        final header = widget.headerBuilder?.call(context, widget.dataSource.groupData);
 
-        final footer =
-            widget.footerBuilder?.call(context, widget.dataSource.groupData);
+        final footer = widget.footerBuilder?.call(context, widget.dataSource.groupData);
 
         final interceptor = CrossReorderFlexDragTargetInterceptor(
           reorderFlexId: widget.groupId,

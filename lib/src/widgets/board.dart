@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-
 import 'package:provider/provider.dart';
 
 import '../rendering/board_overlay.dart';
 import '../utils/log.dart';
-
 import 'board_data.dart';
 import 'board_group/group.dart';
 import 'board_group/group_data.dart';
@@ -35,6 +33,7 @@ class AppFlowyBoardConfig {
     this.groupFooterPadding = const EdgeInsets.symmetric(horizontal: 12),
     this.stretchGroupHeight = true,
     this.cardMargin = const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
+    this.draggingWidgetOpacity = 0.4,
   });
 
   // board
@@ -51,6 +50,7 @@ class AppFlowyBoardConfig {
 
   // card
   final EdgeInsets cardMargin;
+  final double draggingWidgetOpacity;
 }
 
 class AppFlowyBoard extends StatelessWidget {
@@ -169,7 +169,7 @@ class AppFlowyBoard extends StatelessWidget {
 }
 
 class _AppFlowyBoardContent extends StatefulWidget {
-  const _AppFlowyBoardContent({
+  _AppFlowyBoardContent({
     required this.config,
     required this.onReorder,
     required this.delegate,
@@ -185,10 +185,7 @@ class _AppFlowyBoardContent extends StatefulWidget {
     this.background,
     this.headerBuilder,
     this.footerBuilder,
-  }) : reorderFlexConfig = const ReorderFlexConfig(
-          direction: Axis.horizontal,
-          dragDirection: Axis.horizontal,
-        );
+  });
 
   final AppFlowyBoardConfig config;
   final OnReorder onReorder;
@@ -205,18 +202,20 @@ class _AppFlowyBoardContent extends StatefulWidget {
   final Widget? background;
   final AppFlowyBoardHeaderBuilder? headerBuilder;
   final AppFlowyBoardFooterBuilder? footerBuilder;
-  final ReorderFlexConfig reorderFlexConfig;
 
   @override
   State<_AppFlowyBoardContent> createState() => _AppFlowyBoardContentState();
 }
 
 class _AppFlowyBoardContentState extends State<_AppFlowyBoardContent> {
-  final GlobalKey _boardContentKey =
-      GlobalKey(debugLabel: '$_AppFlowyBoardContent overlay key');
+  final GlobalKey _boardContentKey = GlobalKey(debugLabel: '$_AppFlowyBoardContent overlay key');
   late BoardOverlayEntry _overlayEntry;
   late final _scrollController = widget.scrollController ?? ScrollController();
-
+  late final ReorderFlexConfig reorderFlexConfig = ReorderFlexConfig(
+    direction: Axis.horizontal,
+    dragDirection: Axis.horizontal,
+    draggingWidgetOpacity: widget.config.draggingWidgetOpacity,
+  );
   @override
   void initState() {
     super.initState();
@@ -227,8 +226,7 @@ class _AppFlowyBoardContentState extends State<_AppFlowyBoardContent> {
             Container(
               clipBehavior: Clip.hardEdge,
               decoration: BoxDecoration(
-                borderRadius:
-                    BorderRadius.circular(widget.config.boardCornerRadius),
+                borderRadius: BorderRadius.circular(widget.config.boardCornerRadius),
               ),
               child: widget.background,
             ),
@@ -236,10 +234,10 @@ class _AppFlowyBoardContentState extends State<_AppFlowyBoardContent> {
             controller: _scrollController,
             thumbVisibility: true,
             child: SingleChildScrollView(
-              scrollDirection: widget.reorderFlexConfig.direction,
+              scrollDirection: reorderFlexConfig.direction,
               controller: _scrollController,
               child: ReorderFlex(
-                config: widget.reorderFlexConfig,
+                config: reorderFlexConfig,
                 scrollController: _scrollController,
                 onReorder: widget.onReorder,
                 dataSource: widget.boardController,
@@ -306,8 +304,7 @@ class _AppFlowyBoardContentState extends State<_AppFlowyBoardContent> {
                 reorderFlexAction: reorderFlexAction,
                 stretchGroupHeight: widget.config.stretchGroupHeight,
                 onDragStarted: (index) {
-                  widget.boardController.onStartDraggingCard
-                      ?.call(columnData.id, index);
+                  widget.boardController.onStartDraggingCard?.call(columnData.id, index);
                 },
               ),
             ),
@@ -358,15 +355,13 @@ class _BoardGroupDataSourceImpl extends AppFlowyGroupDataDataSource {
   final AppFlowyBoardController boardController;
 
   @override
-  AppFlowyGroupData get groupData =>
-      boardController.getGroupController(groupId)!.groupData;
+  AppFlowyGroupData get groupData => boardController.getGroupController(groupId)!.groupData;
 
   @override
   List<String> get acceptedGroupIds => boardController.groupIds;
 }
 
-class AppFlowyBoardState extends DraggingStateStorage
-    implements ReorderDragTargetKeys {
+class AppFlowyBoardState extends DraggingStateStorage implements ReorderDragTargetKeys {
   final Map<String, DraggingState> groupDragStates = {};
   final Map<String, Map<String, GlobalObjectKey>> groupDragTargetKeys = {};
 
@@ -375,8 +370,7 @@ class AppFlowyBoardState extends DraggingStateStorage
   final Map<String, ReorderFlexActionImpl> reorderFlexActionMap = {};
 
   @override
-  DraggingState? readState(String reorderFlexId) =>
-      groupDragStates[reorderFlexId];
+  DraggingState? readState(String reorderFlexId) => groupDragStates[reorderFlexId];
 
   @override
   void insertState(String reorderFlexId, DraggingState state) {
@@ -408,8 +402,7 @@ class AppFlowyBoardState extends DraggingStateStorage
     String reorderFlexId,
     String key,
   ) {
-    final Map<String, GlobalObjectKey>? group =
-        groupDragTargetKeys[reorderFlexId];
+    final Map<String, GlobalObjectKey>? group = groupDragTargetKeys[reorderFlexId];
     if (group != null) {
       return group[key];
     }

@@ -6,7 +6,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../utils/log.dart';
-
 import 'drag_state.dart';
 import 'drag_target.dart';
 import 'drag_target_interceptor.dart';
@@ -53,8 +52,7 @@ abstract class ReorderDragTargetKeys {
 
 abstract class ReorderFlexAction {
   void Function(void Function(BuildContext)?)? _scrollToBottom;
-  void Function(void Function(BuildContext)?) get scrollToBottom =>
-      _scrollToBottom!;
+  void Function(void Function(BuildContext)?) get scrollToBottom => _scrollToBottom!;
 
   void Function(int)? _resetDragTargetIndex;
   void Function(int) get resetDragTargetIndex => _resetDragTargetIndex!;
@@ -65,6 +63,7 @@ class ReorderFlexConfig {
     this.useMoveAnimation = true,
     this.direction = Axis.vertical,
     this.dragDirection,
+    required this.draggingWidgetOpacity,
   }) : useMovePlaceholder = !useMoveAnimation;
 
   final bool useMoveAnimation;
@@ -77,7 +76,7 @@ class ReorderFlexConfig {
   final Axis? dragDirection;
 
   /// The opacity of the dragging widget
-  final double draggingWidgetOpacity = 0.4;
+  final double draggingWidgetOpacity;
 
   // How long an animation to reorder an element
   final Duration reorderAnimationDuration = const Duration(milliseconds: 200);
@@ -168,8 +167,8 @@ class ReorderFlexState extends State<ReorderFlex>
 
     _notifier = ReorderFlexNotifier();
     final flexId = widget.reorderFlexId;
-    draggingState = widget.dragStateStorage?.readState(flexId) ??
-        DraggingState(widget.reorderFlexId);
+    draggingState =
+        widget.dragStateStorage?.readState(flexId) ?? DraggingState(widget.reorderFlexId);
     Log.trace('[DragTarget] init dragState: $draggingState');
 
     widget.dragStateStorage?.removeState(flexId);
@@ -204,8 +203,8 @@ class ReorderFlexState extends State<ReorderFlex>
       _autoScroller = EdgeDraggingAutoScroller(
         _scrollable,
         onScrollViewScrolled: () {
-          final renderBox = draggingState.draggingKey?.currentContext
-              ?.findRenderObject() as RenderBox?;
+          final renderBox =
+              draggingState.draggingKey?.currentContext?.findRenderObject() as RenderBox?;
           if (renderBox != null) {
             final offset = renderBox.localToGlobal(Offset.zero);
             final size = draggingState.feedbackSize!;
@@ -302,7 +301,7 @@ class ReorderFlexState extends State<ReorderFlex>
               dragSpace = draggingState.draggingWidget!;
             } else {
               dragSpace = PhantomWidget(
-                opacity: widget.config.draggingWidgetOpacity,
+                opacity: 0,
                 child: draggingState.draggingWidget,
               );
             }
@@ -324,15 +323,13 @@ class ReorderFlexState extends State<ReorderFlex>
           }
 
           final Widget appearSpace = _makeAppearSpace(dragSpace, feedbackSize);
-          final Widget disappearSpace =
-              _makeDisappearSpace(dragSpace, feedbackSize);
+          final Widget disappearSpace = _makeDisappearSpace(dragSpace, feedbackSize);
 
           /// When start dragging, the dragTarget, [ReorderDragTarget], will
           /// return a [IgnorePointerWidget] which size is zero.
           if (draggingState.isPhantomAboveDragTarget()) {
             _notifier.updateDragTargetIndex(currentIndex);
-            if (shiftedIndex == currentIndex &&
-                childIndex == dragPhantomIndex) {
+            if (shiftedIndex == currentIndex && childIndex == dragPhantomIndex) {
               return _buildDraggingContainer(
                 children: [
                   disappearSpace,
@@ -358,8 +355,7 @@ class ReorderFlexState extends State<ReorderFlex>
 
           if (draggingState.isPhantomBelowDragTarget()) {
             _notifier.updateDragTargetIndex(currentIndex);
-            if (shiftedIndex == currentIndex &&
-                childIndex == dragPhantomIndex) {
+            if (shiftedIndex == currentIndex && childIndex == dragPhantomIndex) {
               return _buildDraggingContainer(
                 children: [
                   appearSpace,
@@ -405,8 +401,7 @@ class ReorderFlexState extends State<ReorderFlex>
     if (context is StatefulElement && context.state is ReorderFlexState) {
       return context.state as ReorderFlexState;
     }
-    final ReorderFlexState? result =
-        context.findAncestorStateOfType<ReorderFlexState>();
+    final ReorderFlexState? result = context.findAncestorStateOfType<ReorderFlexState>();
     return result!;
   }
 
@@ -581,12 +576,11 @@ class ReorderFlexState extends State<ReorderFlex>
     /// The [willAccept] will be true if the dargTarget is the widget that gets
     /// dragged and it is dragged on top of the other dragTargets.
     ///
-    final bool willAccept = draggingState.dragStartIndex == dragIndex &&
-        dragIndex != dragTargetIndex;
+    final bool willAccept =
+        draggingState.dragStartIndex == dragIndex && dragIndex != dragTargetIndex;
     setState(() {
       if (willAccept) {
-        final int shiftedIndex =
-            draggingState.calculateShiftedIndex(dragTargetIndex);
+        final int shiftedIndex = draggingState.calculateShiftedIndex(dragTargetIndex);
         draggingState.updateNextIndex(shiftedIndex);
       } else {
         draggingState.updateNextIndex(dragTargetIndex);
@@ -701,8 +695,7 @@ class ReorderFlexState extends State<ReorderFlex>
   void _scrollTo(BuildContext context) {
     if (_scrolling) return;
     final RenderObject contextObject = context.findRenderObject()!;
-    final RenderAbstractViewport viewport =
-        RenderAbstractViewport.of(contextObject);
+    final RenderAbstractViewport viewport = RenderAbstractViewport.of(contextObject);
     // If and only if the current scroll offset falls in-between the offsets
     // necessary to reveal the selected context at the top or bottom of the
     // screen, then it is already on-screen.
@@ -719,8 +712,7 @@ class ReorderFlexState extends State<ReorderFlex>
         _scrollController.position.maxScrollExtent,
         viewport.getOffsetToReveal(contextObject, 1.0).offset + margin,
       );
-      final bool onScreen =
-          scrollOffset <= topOffset && scrollOffset >= bottomOffset;
+      final bool onScreen = scrollOffset <= topOffset && scrollOffset >= bottomOffset;
 
       // If the context is off screen, then we request a scroll to make it visible.
       if (!onScreen) {
