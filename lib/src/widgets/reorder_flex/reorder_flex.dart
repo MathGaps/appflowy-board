@@ -3,7 +3,6 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/widgets.dart';
 
 import '../../utils/log.dart';
 import 'drag_state.dart';
@@ -298,11 +297,14 @@ class ReorderFlexState extends State<ReorderFlex>
           Widget dragSpace;
           if (draggingState.draggingWidget != null) {
             if (draggingState.draggingWidget is PhantomWidget) {
-              dragSpace = draggingState.draggingWidget!;
+              dragSpace = Divider(
+                color: Colors.blue.shade900,
+                height: 20,
+              );
             } else {
-              dragSpace = PhantomWidget(
-                opacity: 0,
-                child: draggingState.draggingWidget,
+              dragSpace = Divider(
+                color: Colors.blue.shade900,
+                height: 20,
               );
             }
           } else {
