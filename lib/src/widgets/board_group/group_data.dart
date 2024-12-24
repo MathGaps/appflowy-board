@@ -1,11 +1,9 @@
 import 'dart:collection';
 
-import 'package:flutter/material.dart';
-
-import 'package:equatable/equatable.dart';
-
 import 'package:appflowy_board/src/utils/log.dart';
 import 'package:appflowy_board/src/widgets/reorder_flex/reorder_flex.dart';
+import 'package:equatable/equatable.dart';
+import 'package:flutter/material.dart';
 
 typedef IsDraggable = bool;
 
@@ -37,8 +35,7 @@ class AppFlowyGroupController extends ChangeNotifier with EquatableMixin {
   List<Object?> get props => groupData.props;
 
   /// Returns the readonly List<AppFlowyGroupItem>
-  UnmodifiableListView<AppFlowyGroupItem> get items =>
-      UnmodifiableListView(groupData.items);
+  UnmodifiableListView<AppFlowyGroupItem> get items => UnmodifiableListView(groupData.items);
 
   void updateGroupName(String newName) {
     if (groupData.headerData.groupName != newName) {
@@ -172,15 +169,14 @@ class AppFlowyGroupController extends ChangeNotifier with EquatableMixin {
   }
 
   bool _containsItem(AppFlowyGroupItem item) {
-    return groupData._items.indexWhere((element) => element.id == item.id) !=
-        -1;
+    return groupData._items.indexWhere((element) => element.id == item.id) != -1;
   }
 
   void enableDragging(bool isEnable) {
     groupData.draggable.value = isEnable;
 
     for (final item in groupData._items) {
-      item.draggable.value = isEnable;
+      item.draggable.value = true;
     }
   }
 
@@ -210,8 +206,7 @@ class AppFlowyGroupData<CustomData> extends ReoderFlexItem with EquatableMixin {
   final List<AppFlowyGroupItem> _items;
 
   /// Returns the readonly List<AppFlowyGroupItem>
-  UnmodifiableListView<AppFlowyGroupItem> get items =>
-      UnmodifiableListView([..._items]);
+  UnmodifiableListView<AppFlowyGroupItem> get items => UnmodifiableListView([..._items]);
 
   @override
   List<Object?> get props => [id, ..._items];
