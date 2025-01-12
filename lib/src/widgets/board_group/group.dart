@@ -80,7 +80,7 @@ class AppFlowyBoardGroup extends StatefulWidget {
     this.backgroundColor = Colors.transparent,
     this.stretchGroupHeight = true,
   }) : config = const ReorderFlexConfig(
-          draggingWidgetOpacity: 1.0,
+          draggingWidgetOpacity: 0.4,
         );
 
   final AppFlowyBoardCardBuilder cardBuilder;

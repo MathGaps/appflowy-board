@@ -15,25 +15,15 @@ typedef OnDragEnded = void Function();
 typedef OnReorder = void Function(int fromIndex, int toIndex);
 
 abstract class ReoderFlexDataSource {
-  /// [identifier] represents the id the [ReorderFlex]. It must be unique.
   String get identifier;
-
-  /// The number of [ReoderFlexItem]s will be displayed in the [ReorderFlex].
   UnmodifiableListView<ReoderFlexItem> get items;
 }
 
-/// Each item displayed in the [ReorderFlex] required to implement the [ReoderFlexItem].
 abstract class ReoderFlexItem {
-  /// [id] is used to identify the item. It must be unique.
   String get id;
-
   ValueNotifier<bool> draggable = ValueNotifier(true);
 }
 
-/// Cache each dragTarget's key.
-/// For the moment, the key is used to locate the render object that will
-/// be passed in the [ScrollPosition]'s [ensureVisible] function.
-///
 abstract class ReorderDragTargetKeys {
   void insertDragTarget(
     String reorderFlexId,
@@ -66,23 +56,11 @@ class ReorderFlexConfig {
   }) : useMovePlaceholder = !useMoveAnimation;
 
   final bool useMoveAnimation;
-
-  /// [direction] How to place the children, default is Axis.vertical
   final Axis direction;
-
-  /// [dragDirection] is used to limit the dragging direction
-  /// If it is null, the widget can be dragged in any direction.
   final Axis? dragDirection;
-
-  /// The opacity of the dragging widget
   final double draggingWidgetOpacity;
-
-  // How long an animation to reorder an element
   final Duration reorderAnimationDuration = const Duration(milliseconds: 200);
-
-  // How long an animation to scroll to an off-screen element
   final Duration scrollAnimationDuration = const Duration(milliseconds: 200);
-
   final bool useMovePlaceholder;
 }
 
@@ -111,23 +89,12 @@ class ReorderFlex extends StatefulWidget {
   final ReoderFlexDataSource dataSource;
   final List<Widget> children;
   final ReorderFlexConfig config;
-
-  /// [onReorder] is called when dragTarget did end dragging
   final OnReorder onReorder;
-
-  /// Save the [DraggingState] if the current [ReorderFlex] get reinitialize.
   final DraggingStateStorage? dragStateStorage;
-
   final ReorderDragTargetKeys? dragTargetKeys;
-
   final ScrollController? scrollController;
-
-  /// [onDragStarted] is called when start dragging
   final OnDragStarted? onDragStarted;
-
-  /// [onDragEnded] is called when dragTarget did end dragging
   final OnDragEnded? onDragEnded;
-
   final DragTargetInterceptor? interceptor;
   final ReorderFlexAction? reorderFlexAction;
   final Widget? leading;
@@ -142,23 +109,14 @@ class ReorderFlex extends StatefulWidget {
 
 class ReorderFlexState extends State<ReorderFlex>
     with ReorderFlexMixin, TickerProviderStateMixin<ReorderFlex> {
-  /// Controls scrolls and measures scroll progress.
   late ScrollController _scrollController;
-
-  /// Whether or not we are currently scrolling this view to show a widget.
   bool _scrolling = false;
-
-  /// [draggingState] records the dragging state including dragStartIndex, and phantomIndex, etc.
   late DraggingState draggingState;
-
-  /// [_animation] controls the dragging animations
   late DragTargetAnimation _animation;
-
   late ReorderFlexNotifier _notifier;
-
   late ScrollableState _scrollable;
-
   EdgeDraggingAutoScroller? _autoScroller;
+  bool _isDragging = false;
 
   @override
   void initState() {
@@ -176,8 +134,8 @@ class ReorderFlexState extends State<ReorderFlex>
       reorderAnimationDuration: widget.config.reorderAnimationDuration,
       entranceAnimateStatusChanged: (status) {
         if (status == AnimationStatus.completed) {
-          if (draggingState.nextIndex == -1) return;
-          setState(() => _requestAnimationToNextIndex());
+          if (!_isDragging || draggingState.nextIndex == -1) return;
+          setState(() {});
         }
       },
       vsync: this,
@@ -188,7 +146,7 @@ class ReorderFlexState extends State<ReorderFlex>
     };
 
     widget.reorderFlexAction?._resetDragTargetIndex = (index) {
-      resetDragTargetIndex(index);
+      // resetDragTargetIndex(index);
     };
 
     _scrollController = widget.scrollController ?? ScrollController();
@@ -229,14 +187,13 @@ class ReorderFlexState extends State<ReorderFlex>
       final ReoderFlexItem item = widget.dataSource.items[i];
 
       final indexKey = GlobalObjectKey(child.key!);
-      // Save the index key for quick access
       widget.dragTargetKeys?.insertDragTarget(
         widget.reorderFlexId,
         item.id,
         indexKey,
       );
 
-      children.add(_wrap(child, i, indexKey, item.draggable));
+      children.add(_wrap(child, i, indexKey, item.draggable, widget.reorderFlexId));
     }
 
     return _wrapContainer(children);
@@ -245,33 +202,16 @@ class ReorderFlexState extends State<ReorderFlex>
   @override
   void dispose() {
     _animation.dispose();
+    // _autoScroller?.dispose();
     super.dispose();
   }
 
-  void _requestAnimationToNextIndex({bool isAcceptingNewTarget = false}) {
-    /// Update the dragState and animate to the next index if the current
-    /// dragging animation is completed. Otherwise, it will get called again
-    /// when the animation finish.
-
-    if (_animation.entranceController.isCompleted) {
-      draggingState.removePhantom();
-
-      if (!isAcceptingNewTarget && draggingState.didDragTargetMoveToNext()) {
-        return;
-      }
-
-      draggingState.moveDragTargetToNext();
-      _animation.animateToNext();
-    }
-  }
-
-  /// [child]: the child will be wrapped with dartTarget
-  /// [childIndex]: the index of the child in a list
   Widget _wrap(
     Widget child,
     int childIndex,
     GlobalObjectKey indexKey,
     ValueNotifier<bool> isDraggable,
+    String reorderFlexId,
   ) {
     return Builder(
       builder: (context) {
@@ -282,129 +222,107 @@ class ReorderFlexState extends State<ReorderFlex>
           indexKey,
           isDraggable,
         );
-        int shiftedIndex = childIndex;
 
-        if (draggingState.isOverlapWithPhantom()) {
-          shiftedIndex = draggingState.calculateShiftedIndex(childIndex);
+        if (_isDragging) {
+          if (childIndex == draggingState.nextIndex) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Divider(
+                  color: Colors.blue.shade900,
+                  height: 20,
+                  thickness: 2,
+                ),
+                dragTarget,
+              ],
+            );
+          }
+
+          if (childIndex == draggingState.dragStartIndex && draggingState.draggingKey == indexKey) {
+            return draggingState.draggingWidget!; // Keep original opacity
+          }
         }
 
-        // Log.trace(
-        // 'Rebuild: Group:[${draggingState.reorderFlexId}] ${draggingState.toString()}, childIndex: $childIndex shiftedIndex: $shiftedIndex');
-        final currentIndex = draggingState.currentIndex;
-        final dragPhantomIndex = draggingState.phantomIndex;
-
-        if (shiftedIndex == currentIndex || childIndex == dragPhantomIndex) {
-          Widget dragSpace;
-          if (draggingState.draggingWidget != null) {
-            if (draggingState.draggingWidget is PhantomWidget) {
-              dragSpace = Divider(
-                color: Colors.blue.shade900,
-                height: 20,
-              );
-            } else {
-              dragSpace = Divider(
-                color: Colors.blue.shade900,
-                height: 20,
-              );
-            }
-          } else {
-            dragSpace = SizedBox.fromSize(size: draggingState.dropAreaSize);
-          }
-
-          /// Returns the dragTarget it is not start dragging. The size of the
-          /// dragTarget is the same as the the passed in child.
-          ///
-          if (draggingState.isNotDragging()) {
-            return _buildDraggingContainer(children: [dragTarget]);
-          }
-
-          /// Determine the size of the drop area to show under the dragging widget.
-          Size? feedbackSize = Size.zero;
-          if (widget.config.useMoveAnimation) {
-            feedbackSize = draggingState.feedbackSize;
-          }
-
-          final Widget appearSpace = _makeAppearSpace(dragSpace, feedbackSize);
-          final Widget disappearSpace = _makeDisappearSpace(dragSpace, feedbackSize);
-
-          /// When start dragging, the dragTarget, [ReorderDragTarget], will
-          /// return a [IgnorePointerWidget] which size is zero.
-          if (draggingState.isPhantomAboveDragTarget()) {
-            _notifier.updateDragTargetIndex(currentIndex);
-            if (shiftedIndex == currentIndex && childIndex == dragPhantomIndex) {
-              return _buildDraggingContainer(
-                children: [
-                  disappearSpace,
-                  dragTarget,
-                  appearSpace,
-                ],
-              );
-            } else if (shiftedIndex == currentIndex) {
-              return _buildDraggingContainer(
-                children: [
-                  dragTarget,
-                  appearSpace,
-                ],
-              );
-            } else if (childIndex == dragPhantomIndex) {
-              return _buildDraggingContainer(
-                children: shiftedIndex <= childIndex
-                    ? [dragTarget, disappearSpace]
-                    : [disappearSpace, dragTarget],
-              );
-            }
-          }
-
-          if (draggingState.isPhantomBelowDragTarget()) {
-            _notifier.updateDragTargetIndex(currentIndex);
-            if (shiftedIndex == currentIndex && childIndex == dragPhantomIndex) {
-              return _buildDraggingContainer(
-                children: [
-                  appearSpace,
-                  dragTarget,
-                  disappearSpace,
-                ],
-              );
-            } else if (shiftedIndex == currentIndex) {
-              return _buildDraggingContainer(
-                children: [
-                  appearSpace,
-                  dragTarget,
-                ],
-              );
-            } else if (childIndex == dragPhantomIndex) {
-              return _buildDraggingContainer(
-                children: shiftedIndex >= childIndex
-                    ? [disappearSpace, dragTarget]
-                    : [dragTarget, disappearSpace],
-              );
-            }
-          }
-
-          assert(!draggingState.isOverlapWithPhantom());
-
-          final List<Widget> children = [];
-          if (draggingState.isDragTargetMovingDown()) {
-            children.addAll([dragTarget, appearSpace]);
-          } else {
-            children.addAll([appearSpace, dragTarget]);
-          }
-          return _buildDraggingContainer(children: children);
-        }
-
-        /// We still wrap dragTarget with a container so that widget's depths are
-        /// the same and it prevent's layout alignment issue
-        return _buildDraggingContainer(children: [dragTarget]);
+        return dragTarget;
       },
     );
   }
 
-  static ReorderFlexState of(BuildContext context) {
-    if (context is StatefulElement && context.state is ReorderFlexState) {
-      return context.state as ReorderFlexState;
+  // Add this method to handle end-of-list drop
+  Widget _wrapContainer(List<Widget> children) {
+    Widget container;
+    switch (widget.config.direction) {
+      case Axis.horizontal:
+        container = Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.leading != null) widget.leading!,
+            ...children,
+            if (widget.trailing != null) widget.trailing!,
+          ],
+        );
+        break;
+      case Axis.vertical:
+        container = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.leading != null) widget.leading!,
+            ...children,
+            if (widget.trailing != null) widget.trailing!,
+            // Add an invisible drop target at the end if dragging
+            if (_isDragging)
+              DragTarget<FlexDragTargetData>(
+                onWillAccept: (data) {
+                  if (data != null) {
+                    setState(() {
+                      draggingState.updateNextIndex(children.length);
+                    });
+                    return true;
+                  }
+                  return false;
+                },
+                builder: (context, candidateData, rejectedData) {
+                  return SizedBox(
+                    height: 20,
+                    child: candidateData.isNotEmpty
+                        ? Divider(
+                            color: Colors.blue.shade900,
+                            thickness: 2,
+                          )
+                        : null,
+                  );
+                },
+              ),
+          ],
+        );
+        break;
     }
-    final ReorderFlexState? result = context.findAncestorStateOfType<ReorderFlexState>();
-    return result!;
+    return container;
+  }
+
+  bool handleOnWillAccept(BuildContext context, int dragTargetIndex) {
+    final dragIndex = draggingState.dragStartIndex;
+
+    // Allow accepting at the original position to handle edge cases
+    final bool willAccept = true;
+
+    if (willAccept) {
+      setState(() {
+        // Update next index but don't move the original item yet
+        draggingState.updateNextIndex(dragTargetIndex);
+      });
+    }
+
+    _scrollTo(context);
+    return willAccept;
+  }
+
+  void _onReordered(int fromIndex, int toIndex) {
+    if (fromIndex != toIndex && fromIndex != -1 && toIndex != -1) {
+      // Ensure toIndex is valid even for end of list
+      final validToIndex = min(toIndex, widget.children.length);
+      widget.onReorder.call(fromIndex, validToIndex);
+    }
   }
 
   ReorderDragTarget _buildDragTarget(
@@ -427,13 +345,12 @@ class ReorderFlexState extends State<ReorderFlex>
         dragTargetIndexKey: indexKey,
       ),
       onDragStarted: (draggingWidget, draggingIndex, size) {
-        Log.debug(
-          "[DragTarget] Group \"${widget.dataSource.identifier}\" start dragging item at index $draggingIndex",
-        );
-        draggingState.draggingKey = indexKey;
-        _startDragging(draggingWidget, draggingIndex, size);
-        widget.onDragStarted?.call(draggingIndex);
-        widget.dragStateStorage?.removeState(widget.reorderFlexId);
+        setState(() {
+          _isDragging = true;
+          draggingState.draggingKey = indexKey;
+          draggingState.startDragging(draggingWidget, draggingIndex, size);
+          widget.onDragStarted?.call(draggingIndex);
+        });
       },
       onDragMoved: (dragTargetData, offset) {
         draggingState.draggingKey = indexKey;
@@ -446,24 +363,15 @@ class ReorderFlexState extends State<ReorderFlex>
         }
       },
       onDragEnded: (dragTargetData) {
-        if (!mounted) {
-          Log.warn(
-            "[DragTarget] Group \"${widget.dataSource.identifier}\" end dragging but current widget was unmounted",
-          );
-          return;
-        }
-        Log.debug(
-          "[DragTarget] Group \"${widget.dataSource.identifier}\" end dragging",
-        );
-
-        _notifier.updateDragTargetIndex(-1);
-        _animation.insertController.stop();
+        if (!mounted) return;
 
         setState(() {
-          if (dragTargetData.reorderFlexId == widget.reorderFlexId) {
+          _isDragging = false;
+          if (dragTargetData.reorderFlexId == widget.reorderFlexId &&
+              draggingState.nextIndex != -1) {
             _onReordered(
               draggingState.dragStartIndex,
-              draggingState.currentIndex,
+              draggingState.nextIndex,
             );
           }
           draggingState.endDragging();
@@ -471,13 +379,9 @@ class ReorderFlexState extends State<ReorderFlex>
         });
       },
       onWillAcceptWithDetails: (FlexDragTargetData dragTargetData) {
-        // Do not receive any events if the Insert item is animating.
-        if (_animation.insertController.isAnimating) {
-          return false;
-        }
+        if (_animation.insertController.isAnimating) return false;
 
         if (dragTargetData.isDragging) {
-          assert(widget.dataSource.items.length > dragTargetIndex);
           if (_interceptDragTarget(dragTargetData, (interceptor) {
             interceptor.onWillAccept(
               context: builderContext,
@@ -491,9 +395,8 @@ class ReorderFlexState extends State<ReorderFlex>
           } else {
             return handleOnWillAccept(builderContext, dragTargetIndex);
           }
-        } else {
-          return false;
         }
+        return false;
       },
       onAccceptWithDetails: (dragTargetData) {
         _interceptDragTarget(
@@ -502,7 +405,6 @@ class ReorderFlexState extends State<ReorderFlex>
         );
       },
       onLeave: (dragTargetData) {
-        _notifier.updateDragTargetIndex(-1);
         _interceptDragTarget(
           dragTargetData,
           (interceptor) => interceptor.onLeave(dragTargetData),
@@ -518,6 +420,26 @@ class ReorderFlexState extends State<ReorderFlex>
     );
   }
 
+  // bool handleOnWillAccept(BuildContext context, int dragTargetIndex) {
+  //   final dragIndex = draggingState.dragStartIndex;
+  //   final bool willAccept = dragIndex != dragTargetIndex;
+
+  //   if (willAccept) {
+  //     setState(() {
+  //       draggingState.updateNextIndex(dragTargetIndex);
+  //     });
+  //   }
+
+  //   _scrollTo(context);
+  //   return willAccept;
+  // }
+
+  // void _onReordered(int fromIndex, int toIndex) {
+  //   if (fromIndex != toIndex && fromIndex != -1 && toIndex != -1) {
+  //     widget.onReorder.call(fromIndex, toIndex);
+  //   }
+  // }
+
   bool _interceptDragTarget(
     FlexDragTargetData dragTargetData,
     void Function(DragTargetInterceptor) callback,
@@ -526,128 +448,32 @@ class ReorderFlexState extends State<ReorderFlex>
     if (interceptor != null && interceptor.canHandler(dragTargetData)) {
       callback(interceptor);
       return true;
-    } else {
-      return false;
     }
+    return false;
   }
 
-  Widget _makeAppearSpace(Widget child, Size? feedbackSize) {
-    return makeAppearingWidget(
-      child,
-      _animation.entranceController,
-      feedbackSize,
-      widget.config.direction,
-    );
-  }
-
-  Widget _makeDisappearSpace(Widget child, Size? feedbackSize) {
-    return makeDisappearingWidget(
-      child,
-      _animation.phantomController,
-      feedbackSize,
-      widget.config.direction,
-    );
-  }
-
-  void _startDragging(
-    Widget draggingWidget,
-    int dragIndex,
-    Size? feedbackSize,
-  ) {
-    setState(() {
-      draggingState.startDragging(draggingWidget, dragIndex, feedbackSize);
-      _animation.startDragging();
-    });
-  }
-
-  void resetDragTargetIndex(int dragTargetIndex) {
-    if (dragTargetIndex > widget.dataSource.items.length) {
-      return;
-    }
-
-    draggingState.setStartDraggingIndex(dragTargetIndex);
-    widget.dragStateStorage?.insertState(
-      widget.reorderFlexId,
-      draggingState,
-    );
-  }
-
-  bool handleOnWillAccept(BuildContext context, int dragTargetIndex) {
-    final dragIndex = draggingState.dragStartIndex;
-
-    /// The [willAccept] will be true if the dargTarget is the widget that gets
-    /// dragged and it is dragged on top of the other dragTargets.
-    ///
-    final bool willAccept =
-        draggingState.dragStartIndex == dragIndex && dragIndex != dragTargetIndex;
-    setState(() {
-      if (willAccept) {
-        final int shiftedIndex = draggingState.calculateShiftedIndex(dragTargetIndex);
-        draggingState.updateNextIndex(shiftedIndex);
-      } else {
-        draggingState.updateNextIndex(dragTargetIndex);
-      }
-      _requestAnimationToNextIndex(isAcceptingNewTarget: true);
-    });
-
-    Log.trace(
-      '[$ReorderDragTarget] ${widget.reorderFlexId} dragging state: $draggingState}',
-    );
-
-    _scrollTo(context);
-
-    /// If the target is not the original starting point, then we will accept the drop.
-    return willAccept;
-  }
-
-  void _onReordered(int fromIndex, int toIndex) {
-    if (toIndex == -1) return;
-    if (fromIndex == -1) return;
-
-    if (fromIndex != toIndex) {
-      widget.onReorder.call(fromIndex, toIndex);
-    }
-
-    _animation.reverseAnimation();
-  }
-
-  Widget _wrapContainer(List<Widget> children) {
-    switch (widget.config.direction) {
-      case Axis.horizontal:
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (widget.leading != null) widget.leading!,
-            ...children,
-            if (widget.trailing != null) widget.trailing!,
-          ],
-        );
-      case Axis.vertical:
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (widget.leading != null) widget.leading!,
-            ...children,
-            if (widget.trailing != null) widget.trailing!,
-          ],
-        );
-    }
-  }
-
-  Widget _buildDraggingContainer({required List<Widget> children}) {
-    switch (widget.config.direction) {
-      case Axis.horizontal:
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: children,
-        );
-      case Axis.vertical:
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: children,
-        );
-    }
-  }
+  // Widget _wrapContainer(List<Widget> children) {
+  //   switch (widget.config.direction) {
+  //     case Axis.horizontal:
+  //       return Row(
+  //         crossAxisAlignment: CrossAxisAlignment.start,
+  //         children: [
+  //           if (widget.leading != null) widget.leading!,
+  //           ...children,
+  //           if (widget.trailing != null) widget.trailing!,
+  //         ],
+  //       );
+  //     case Axis.vertical:
+  //       return Column(
+  //         crossAxisAlignment: CrossAxisAlignment.start,
+  //         children: [
+  //           if (widget.leading != null) widget.leading!,
+  //           ...children,
+  //           if (widget.trailing != null) widget.trailing!,
+  //         ],
+  //       );
+  //   }
+  // }
 
   void scrollToBottom(void Function(BuildContext)? completed) {
     if (_scrolling) {
