@@ -303,13 +303,16 @@ class ReorderFlexState extends State<ReorderFlex>
   bool handleOnWillAccept(BuildContext context, int dragTargetIndex) {
     final dragIndex = draggingState.dragStartIndex;
 
-    // Allow accepting at the original position to handle edge cases
-    final bool willAccept = true;
+    // Allow accepting at any valid position including the end
+    final bool willAccept = dragIndex != dragTargetIndex ||
+        (dragTargetIndex == widget.children.length && dragIndex != dragTargetIndex - 1);
 
     if (willAccept) {
       setState(() {
-        // Update next index but don't move the original item yet
-        draggingState.updateNextIndex(dragTargetIndex);
+        // Update next index to handle end-of-list case
+        final effectiveIndex =
+            dragTargetIndex >= widget.children.length ? widget.children.length : dragTargetIndex;
+        draggingState.updateNextIndex(effectiveIndex);
       });
     }
 
@@ -319,9 +322,9 @@ class ReorderFlexState extends State<ReorderFlex>
 
   void _onReordered(int fromIndex, int toIndex) {
     if (fromIndex != toIndex && fromIndex != -1 && toIndex != -1) {
-      // Ensure toIndex is valid even for end of list
-      final validToIndex = min(toIndex, widget.children.length);
-      widget.onReorder.call(fromIndex, validToIndex);
+      // Ensure toIndex is valid for end of list drops
+      final effectiveToIndex = min(toIndex, widget.children.length);
+      widget.onReorder.call(fromIndex, effectiveToIndex);
     }
   }
 
@@ -420,26 +423,6 @@ class ReorderFlexState extends State<ReorderFlex>
     );
   }
 
-  // bool handleOnWillAccept(BuildContext context, int dragTargetIndex) {
-  //   final dragIndex = draggingState.dragStartIndex;
-  //   final bool willAccept = dragIndex != dragTargetIndex;
-
-  //   if (willAccept) {
-  //     setState(() {
-  //       draggingState.updateNextIndex(dragTargetIndex);
-  //     });
-  //   }
-
-  //   _scrollTo(context);
-  //   return willAccept;
-  // }
-
-  // void _onReordered(int fromIndex, int toIndex) {
-  //   if (fromIndex != toIndex && fromIndex != -1 && toIndex != -1) {
-  //     widget.onReorder.call(fromIndex, toIndex);
-  //   }
-  // }
-
   bool _interceptDragTarget(
     FlexDragTargetData dragTargetData,
     void Function(DragTargetInterceptor) callback,
@@ -451,29 +434,6 @@ class ReorderFlexState extends State<ReorderFlex>
     }
     return false;
   }
-
-  // Widget _wrapContainer(List<Widget> children) {
-  //   switch (widget.config.direction) {
-  //     case Axis.horizontal:
-  //       return Row(
-  //         crossAxisAlignment: CrossAxisAlignment.start,
-  //         children: [
-  //           if (widget.leading != null) widget.leading!,
-  //           ...children,
-  //           if (widget.trailing != null) widget.trailing!,
-  //         ],
-  //       );
-  //     case Axis.vertical:
-  //       return Column(
-  //         crossAxisAlignment: CrossAxisAlignment.start,
-  //         children: [
-  //           if (widget.leading != null) widget.leading!,
-  //           ...children,
-  //           if (widget.trailing != null) widget.trailing!,
-  //         ],
-  //       );
-  //   }
-  // }
 
   void scrollToBottom(void Function(BuildContext)? completed) {
     if (_scrolling) {
