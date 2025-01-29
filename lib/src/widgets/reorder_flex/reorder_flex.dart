@@ -1,5 +1,5 @@
 import 'dart:collection';
-import 'dart:math';
+import 'dart:math' hide log;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -224,7 +224,7 @@ class ReorderFlexState extends State<ReorderFlex>
         );
 
         if (_isDragging) {
-          if (childIndex == draggingState.nextIndex) {
+          if (childIndex == draggingState.nextIndex || childIndex == widget.children.length) {
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -269,30 +269,34 @@ class ReorderFlexState extends State<ReorderFlex>
             if (widget.leading != null) widget.leading!,
             ...children,
             if (widget.trailing != null) widget.trailing!,
-            // Add an invisible drop target at the end if dragging
-            if (_isDragging)
+            if (_isDragging || draggingState.nextIndex == widget.children.length)
               DragTarget<FlexDragTargetData>(
                 onWillAccept: (data) {
-                  if (data != null) {
+                  if (data != null || draggingState.nextIndex == widget.children.length) {
                     setState(() {
-                      draggingState.updateNextIndex(children.length);
+                      draggingState.updateNextIndex(widget.children.length);
                     });
                     return true;
                   }
                   return false;
                 },
                 builder: (context, candidateData, rejectedData) {
-                  return SizedBox(
-                    height: 20,
-                    child: candidateData.isNotEmpty
-                        ? Divider(
-                            color: Colors.blue.shade900,
-                            thickness: 2,
-                          )
-                        : null,
-                  );
+                  return draggingState.nextIndex == widget.children.length
+                      ? Divider(
+                          color: Colors.blue.shade900,
+                          height: 20,
+                          thickness: 2,
+                        )
+                      : SizedBox(
+                          height: 20,
+                          child: Container(
+                            color: Colors.transparent,
+                          ),
+                        );
                 },
-              ),
+              )
+            else
+              const SizedBox(height: 0),
           ],
         );
         break;
@@ -304,14 +308,13 @@ class ReorderFlexState extends State<ReorderFlex>
     final dragIndex = draggingState.dragStartIndex;
 
     // Allow accepting at any valid position including the end
-    final bool willAccept = dragIndex != dragTargetIndex ||
-        (dragTargetIndex == widget.children.length && dragIndex != dragTargetIndex - 1);
+    final bool willAccept =
+        dragIndex != dragTargetIndex || (dragTargetIndex == widget.children.length - 1);
 
     if (willAccept) {
       setState(() {
         // Update next index to handle end-of-list case
-        final effectiveIndex =
-            dragTargetIndex >= widget.children.length ? widget.children.length : dragTargetIndex;
+        final effectiveIndex = dragTargetIndex;
         draggingState.updateNextIndex(effectiveIndex);
       });
     }
